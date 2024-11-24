@@ -1,5 +1,4 @@
 package com.example.wakeonlanapp.viewmodel
-
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -22,6 +21,15 @@ class WakeOnLanViewModel : ViewModel() {
     var isWireGuardActive by mutableStateOf(false)
         private set
 
+    var publicKey by mutableStateOf("") // Holds the public key
+
+    init {
+        // Generate a key pair on initialization if not already present
+        KeyManager.generateKeyPairIfNeeded()
+        // Retrieve the public key in OpenSSH format
+        publicKey = KeyManager.getOpenSshPublicKey()
+    }
+
     // Check if WireGuard is active
     fun checkWireGuardState(context: Context) {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -33,11 +41,9 @@ class WakeOnLanViewModel : ViewModel() {
     // Toggle WireGuard state
     fun toggleWireGuardState(context: Context) {
         if (isWireGuardActive) {
-            // Deactivate WireGuard
             isWireGuardActive = false
             Toast.makeText(context, "WireGuard Deactivated", Toast.LENGTH_SHORT).show()
         } else {
-            // Activate WireGuard by opening WireGuard settings
             try {
                 val intent = Intent(Intent.ACTION_MAIN).apply {
                     setClassName(
@@ -55,7 +61,6 @@ class WakeOnLanViewModel : ViewModel() {
         }
     }
 
-
     // Get detailed network information
     fun getDetailedNetworkInfo(context: Context): String {
         return try {
@@ -64,7 +69,6 @@ class WakeOnLanViewModel : ViewModel() {
             val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return "Unknown network type"
             val linkProperties: LinkProperties? = connectivityManager.getLinkProperties(network)
 
-            // Connection type
             val connectionType = when {
                 capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
                 capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
@@ -72,24 +76,19 @@ class WakeOnLanViewModel : ViewModel() {
                 else -> "Other"
             }
 
-            // IP address
             val ipAddress = linkProperties?.linkAddresses
                 ?.find { it.address is Inet4Address }
                 ?.address?.hostAddress ?: "Unknown IP"
 
-            // Subnet mask (CIDR notation)
             val subnetMask = linkProperties?.linkAddresses
                 ?.find { it.address is Inet4Address }
                 ?.prefixLength?.let { "/$it" } ?: "Unknown"
 
-            // Link speed (Wi-Fi only)
             val linkSpeed = if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                "N/A" // You can include Wi-Fi-specific speed details here
+                "N/A"
             } else {
                 "N/A"
             }
-
-            // Additional Wi-Fi or Ethernet-specific information can be added here
 
             """
                 Connection Type: $connectionType
@@ -106,7 +105,7 @@ class WakeOnLanViewModel : ViewModel() {
     fun sendWakeOnLanCommand(context: Context, host: String, password: String, command: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val user = "admin" // Replace with your username
+                val user = "admin"
                 val jsch = JSch()
                 val session = jsch.getSession(user, host, 22)
                 session.setPassword(password)
