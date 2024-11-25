@@ -67,7 +67,7 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                     viewModel.sendWakeOnLanCommand(
                         context = context,
                         host = "10.0.0.3",
-                        password = "testest1234!",
+                        user = "admin",
                         command = "bash WOL_Curdin_Machine.sh"
                     )
                 },
@@ -85,7 +85,7 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                     viewModel.sendWakeOnLanCommand(
                         context = context,
                         host = "10.0.0.4",
-                        password = "Solar1234",
+                        user = "admin",
                         command = "bash WOL_SA_Workstation.sh"
                     )
                 },

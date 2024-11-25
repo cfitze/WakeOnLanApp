@@ -101,35 +101,46 @@ class WakeOnLanViewModel : ViewModel() {
         }
     }
 
-    // Function to send Wake-On-LAN command
-    fun sendWakeOnLanCommand(context: Context, host: String, password: String, command: String) {
+    fun sendWakeOnLanCommand(context: Context, host: String, user: String, command: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val user = "admin"
                 val jsch = JSch()
-                val session = jsch.getSession(user, host, 22)
-                session.setPassword(password)
 
+                // Retrieve private key in PEM format
+                val privateKeyPem = KeyManager.getPrivateKeyAsPem()
+                jsch.addIdentity("AndroidKeyStoreIdentity", privateKeyPem.toByteArray(), null, null)
+
+                // Create SSH session
+                val session = jsch.getSession(user, host, 22)
+
+                // Configure SSH session
                 val config = Properties()
-                config["StrictHostKeyChecking"] = "no"
+                config["StrictHostKeyChecking"] = "no" // Disable for testing; enable in production
                 session.setConfig(config)
                 session.connect()
 
-                val channel = session.openChannel("exec") as ChannelExec
+                // Execute command
+                val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
                 channel.setCommand(command)
                 channel.connect()
 
+                // Cleanup
                 channel.disconnect()
                 session.disconnect()
 
+                // Notify user of success
                 CoroutineScope(Dispatchers.Main).launch {
-                    Toast.makeText(context, "Magic Packet Sent Successfully!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Command Sent Successfully!", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
+                // Notify user of error
                 CoroutineScope(Dispatchers.Main).launch {
                     Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
+
+
+
 }

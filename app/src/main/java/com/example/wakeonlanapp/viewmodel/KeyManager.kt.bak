@@ -2,13 +2,10 @@ package com.example.wakeonlanapp.viewmodel
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import android.util.Base64
-import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
-import java.security.PrivateKey
 import java.security.PublicKey
-import java.security.Signature
+import android.util.Base64
 
 object KeyManager {
 
@@ -20,6 +17,7 @@ object KeyManager {
             load(null)
         }
 
+        // Check if the key pair already exists
         if (!keyStore.containsAlias(KEY_ALIAS)) {
             val keyPairGenerator = KeyPairGenerator.getInstance(
                 KeyProperties.KEY_ALGORITHM_RSA,
@@ -41,27 +39,7 @@ object KeyManager {
         }
     }
 
-    // Retrieve private key from Keystore
-    fun getPrivateKey(): PrivateKey {
-        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
-            load(null)
-        }
-
-        return keyStore.getKey(KEY_ALIAS, null) as PrivateKey
-    }
-
-    // Convert the private key to PEM format
-    fun getPrivateKeyAsPem(): String {
-        val privateKey = getPrivateKey()
-
-        val keyFactory = KeyFactory.getInstance("RSA")
-        val pkcs8Spec = keyFactory.getKeySpec(privateKey, java.security.spec.PKCS8EncodedKeySpec::class.java)
-        val pkcs8Bytes = pkcs8Spec.encoded
-
-        return Base64.encodeToString(pkcs8Bytes, Base64.NO_WRAP)
-    }
-
-    // Retrieve public key from Keystore
+    // Retrieve the public key from Keystore
     fun getPublicKey(): PublicKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
             load(null)
@@ -74,20 +52,11 @@ object KeyManager {
     fun getOpenSshPublicKey(): String {
         val publicKey = getPublicKey()
         val publicKeyBytes = publicKey.encoded
-        val base64Key = Base64.encodeToString(publicKeyBytes, Base64.NO_WRAP)
-        return "ssh-rsa $base64Key android_device"
-    }
 
-    // Sign data using the private key
-    /*
-    fun signData(data: ByteArray): ByteArray {
-        val privateKey = getPrivateKey()
-        val signature = Signature.getInstance("SHA256withRSA").apply {
-            initSign(privateKey)
-            update(data)
-        }
-        return signature.sign()
-    }
+        // Convert the key to Base64
+        val base64PublicKey = Base64.encodeToString(publicKeyBytes, Base64.NO_WRAP)
 
-     */
+        // Format the key as OpenSSH
+        return "ssh-rsa $base64PublicKey android_device"
+    }
 }
