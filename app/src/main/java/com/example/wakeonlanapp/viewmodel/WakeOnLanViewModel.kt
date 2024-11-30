@@ -1,21 +1,21 @@
 package com.example.wakeonlanapp.viewmodel
+
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.widget.Toast
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.example.wakeonlanapp.ssh.SSHConnectionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.Inet4Address
-import java.util.Properties
-import com.jcraft.jsch.ChannelExec
-import com.jcraft.jsch.JSch
 
 class WakeOnLanViewModel : ViewModel() {
     var isWireGuardActive by mutableStateOf(false)
@@ -101,33 +101,26 @@ class WakeOnLanViewModel : ViewModel() {
         }
     }
 
-    // Function to send Wake-On-LAN command
-    fun sendWakeOnLanCommand(context: Context, host: String, password: String, command: String) {
+    // Function to send Wake-On-LAN command using SSHJ and public key authentication
+    fun sendWakeOnLanCommand(context: Context, host: String, command: String) {
+        if (!isWireGuardActive) {
+            Toast.makeText(context, "WireGuard is not connected. Please activate it.", Toast.LENGTH_SHORT).show()
+            return
+        }
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val user = "admin"
-                val jsch = JSch()
-                val session = jsch.getSession(user, host, 22)
-                session.setPassword(password)
-
-                val config = Properties()
-                config["StrictHostKeyChecking"] = "no"
-                session.setConfig(config)
-                session.connect()
-
-                val channel = session.openChannel("exec") as ChannelExec
-                channel.setCommand(command)
-                channel.connect()
-
-                channel.disconnect()
-                session.disconnect()
-
-                CoroutineScope(Dispatchers.Main).launch {
-                    Toast.makeText(context, "Magic Packet Sent Successfully!", Toast.LENGTH_SHORT).show()
+                val output = SSHConnectionManager.executeCommandWithPublicKey(
+                    context = context,
+                    host = host,
+                    username = "admin",
+                    command = command
+                )
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Command executed successfully: $output", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                CoroutineScope(Dispatchers.Main).launch {
-                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error executing command: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }

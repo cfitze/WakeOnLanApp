@@ -22,6 +22,8 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     var publicKeyVisible by remember { mutableStateOf(false) } // To control visibility of public key
+    var keyAliases by remember { mutableStateOf("No key aliases available") } // To display key aliases
+    var currentAlias by remember { mutableStateOf("None") } // To display the currently used key alias
     val publicKey = remember { mutableStateOf("") }
 
     // Generate and retrieve public key on launch
@@ -29,6 +31,8 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
         val keyManager = KeyManager
         publicKey.value = keyManager.getOpenSshPublicKey()
         viewModel.checkWireGuardState(context)
+        keyAliases = KeyManager.listKeyAliases().joinToString(", ") // Convert list to a comma-separated string
+        currentAlias = KeyManager.getCurrentAlias() // Fetch the current key alias
     }
 
     MaterialTheme {
@@ -67,7 +71,6 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                     viewModel.sendWakeOnLanCommand(
                         context = context,
                         host = "10.0.0.3",
-                        password = "testest1234!",
                         command = "bash WOL_Curdin_Machine.sh"
                     )
                 },
@@ -85,7 +88,6 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                     viewModel.sendWakeOnLanCommand(
                         context = context,
                         host = "10.0.0.4",
-                        password = "Solar1234",
                         command = "bash WOL_SA_Workstation.sh"
                     )
                 },
@@ -134,7 +136,40 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                 ) {
                     Text("Copy Public Key")
                 }
+            }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Display key aliases
+            Text(
+                text = "Key Aliases:",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = keyAliases,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(16.dp)
+            )
+
+            // Display current alias
+            Text(
+                text = "Currently Used Alias: $currentAlias",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(16.dp)
+            )
+
+            // Button to refresh key aliases
+            Button(
+                onClick = {
+                    keyAliases = KeyManager.listKeyAliases().joinToString(", ") // Convert list to a comma-separated string
+                    currentAlias = KeyManager.getCurrentAlias() // Update the currently used alias
+                    Toast.makeText(context, "Key Aliases refreshed!", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Text("Refresh Key Aliases")
             }
         }
     }

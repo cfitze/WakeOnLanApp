@@ -4,59 +4,79 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.PrivateKey
 import java.security.PublicKey
-import android.util.Base64
+import java.util.Base64
 
 object KeyManager {
-
+    //private const val KEY_ALIAS = "MySSHKeyAlias"
     private const val KEY_ALIAS = "MyKeyAlias"
 
-    // Generate RSA key pair if it doesn't already exist
+    init {
+        generateKeyPairIfNeeded()
+    }
+
+    // Generate RSA KeyPair in Android Keystore
     fun generateKeyPairIfNeeded() {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
             load(null)
         }
 
-        // Check if the key pair already exists
         if (!keyStore.containsAlias(KEY_ALIAS)) {
             val keyPairGenerator = KeyPairGenerator.getInstance(
                 KeyProperties.KEY_ALGORITHM_RSA,
                 "AndroidKeyStore"
             )
-
             keyPairGenerator.initialize(
                 KeyGenParameterSpec.Builder(
                     KEY_ALIAS,
-                    KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_DECRYPT
+                    KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
                 )
-                    .setKeySize(2048)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
                     .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
                     .build()
             )
-
             keyPairGenerator.generateKeyPair()
         }
     }
 
-    // Retrieve the public key from Keystore
+    fun getPrivateKey(): PrivateKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
+            load(null)
+        }
+        return keyStore.getKey(KEY_ALIAS, null) as PrivateKey
+    }
+
     fun getPublicKey(): PublicKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
             load(null)
         }
-
         return keyStore.getCertificate(KEY_ALIAS).publicKey
     }
 
-    // Convert the public key to OpenSSH format
     fun getOpenSshPublicKey(): String {
         val publicKey = getPublicKey()
-        val publicKeyBytes = publicKey.encoded
+        val encodedKey = Base64.getEncoder().encodeToString(publicKey.encoded)
+        return "ssh-rsa $encodedKey"
+    }
 
-        // Convert the key to Base64
-        val base64PublicKey = Base64.encodeToString(publicKeyBytes, Base64.NO_WRAP)
+    fun listKeyAliases(): List<String> {
+        val aliases = mutableListOf<String>()
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
+                load(null)
+            }
+            val enumeration = keyStore.aliases()
+            while (enumeration.hasMoreElements()) {
+                aliases.add(enumeration.nextElement())
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return aliases
+    }
 
-        // Format the key as OpenSSH
-        return "ssh-rsa $base64PublicKey android_device"
+    fun getCurrentAlias(): String {
+        return KEY_ALIAS // Return the hardcoded alias currently in use
     }
 }

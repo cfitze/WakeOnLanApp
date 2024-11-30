@@ -49,6 +49,11 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.sshj)
+
+    // Bouncy Castle for cryptographic operations
+    implementation(libs.bcprov.jdk15on)
+    implementation(libs.bcpkix.jdk15on)
 
     // Unit Testing
     testImplementation(libs.junit)
@@ -60,6 +65,7 @@ dependencies {
     // Debug Tools
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation(libs.slf4j.android)
 
     // Add JSch Dependency for SSH
     implementation(libs.jsch)
