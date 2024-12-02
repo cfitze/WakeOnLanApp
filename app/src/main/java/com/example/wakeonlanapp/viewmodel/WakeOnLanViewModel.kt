@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +29,7 @@ class WakeOnLanViewModel : ViewModel() {
         KeyManager.generateKeyPairIfNeeded()
         // Retrieve the public key in OpenSSH format
         publicKey = KeyManager.getOpenSshPublicKey()
+        Log.d("SSH", "App Public Key: $publicKey")
     }
 
     // Check if WireGuard is active

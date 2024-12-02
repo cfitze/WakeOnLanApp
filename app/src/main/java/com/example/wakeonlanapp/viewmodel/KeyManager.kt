@@ -2,6 +2,7 @@ package com.example.wakeonlanapp.viewmodel
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Log
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
@@ -9,7 +10,7 @@ import java.security.PublicKey
 import java.util.Base64
 
 object KeyManager {
-    //private const val KEY_ALIAS = "MySSHKeyAlias"
+    private const val TAG = "KeyManager"
     private const val KEY_ALIAS = "MyKeyAlias"
 
     init {
@@ -18,46 +19,70 @@ object KeyManager {
 
     // Generate RSA KeyPair in Android Keystore
     fun generateKeyPairIfNeeded() {
-        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
-            load(null)
-        }
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
+                load(null)
+            }
 
-        if (!keyStore.containsAlias(KEY_ALIAS)) {
-            val keyPairGenerator = KeyPairGenerator.getInstance(
-                KeyProperties.KEY_ALGORITHM_RSA,
-                "AndroidKeyStore"
-            )
-            keyPairGenerator.initialize(
-                KeyGenParameterSpec.Builder(
-                    KEY_ALIAS,
-                    KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+            if (!keyStore.containsAlias(KEY_ALIAS)) {
+                Log.d(TAG, "Key alias not found. Generating a new key pair.")
+
+                val keyPairGenerator = KeyPairGenerator.getInstance(
+                    KeyProperties.KEY_ALGORITHM_RSA,
+                    "AndroidKeyStore"
                 )
-                    .setDigests(KeyProperties.DIGEST_SHA256)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
-                    .build()
-            )
-            keyPairGenerator.generateKeyPair()
+                keyPairGenerator.initialize(
+                    KeyGenParameterSpec.Builder(
+                        KEY_ALIAS,
+                        KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+                    )
+                        .setDigests(KeyProperties.DIGEST_SHA256)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+                        .build()
+                )
+                keyPairGenerator.generateKeyPair()
+                Log.d(TAG, "Key pair generated successfully with alias: $KEY_ALIAS")
+            } else {
+                Log.d(TAG, "Key alias already exists: $KEY_ALIAS")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating key pair: ${e.message}", e)
         }
     }
 
     fun getPrivateKey(): PrivateKey {
-        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
-            load(null)
+        return try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
+                load(null)
+            }
+            keyStore.getKey(KEY_ALIAS, null) as PrivateKey
+        } catch (e: Exception) {
+            Log.e(TAG, "Error retrieving private key: ${e.message}", e)
+            throw e
         }
-        return keyStore.getKey(KEY_ALIAS, null) as PrivateKey
     }
 
     fun getPublicKey(): PublicKey {
-        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
-            load(null)
+        return try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
+                load(null)
+            }
+            keyStore.getCertificate(KEY_ALIAS).publicKey
+        } catch (e: Exception) {
+            Log.e(TAG, "Error retrieving public key: ${e.message}", e)
+            throw e
         }
-        return keyStore.getCertificate(KEY_ALIAS).publicKey
     }
 
     fun getOpenSshPublicKey(): String {
-        val publicKey = getPublicKey()
-        val encodedKey = Base64.getEncoder().encodeToString(publicKey.encoded)
-        return "ssh-rsa $encodedKey"
+        return try {
+            val publicKey = getPublicKey()
+            val encodedKey = Base64.getEncoder().encodeToString(publicKey.encoded)
+            "ssh-rsa $encodedKey"
+        } catch (e: Exception) {
+            Log.e(TAG, "Error converting public key to OpenSSH format: ${e.message}", e)
+            throw e
+        }
     }
 
     fun listKeyAliases(): List<String> {
@@ -70,13 +95,15 @@ object KeyManager {
             while (enumeration.hasMoreElements()) {
                 aliases.add(enumeration.nextElement())
             }
+            Log.d(TAG, "Key aliases retrieved: $aliases")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error listing key aliases: ${e.message}", e)
         }
         return aliases
     }
 
     fun getCurrentAlias(): String {
-        return KEY_ALIAS // Return the hardcoded alias currently in use
+        Log.d(TAG, "Current key alias: $KEY_ALIAS")
+        return KEY_ALIAS
     }
 }

@@ -1,38 +1,61 @@
-package com.example.wakeonlanapp.ssh
-
-import net.schmizz.sshj.common.KeyType
+import net.schmizz.sshj.signature.Signature
 import net.schmizz.sshj.userauth.keyprovider.KeyProvider
 import java.security.PrivateKey
 import java.security.PublicKey
+import java.security.Signature as JavaSignature
+import net.schmizz.sshj.common.KeyType
 
 class KeyStoreIdentityProvider(
     private val publicKey: PublicKey,
     private val privateKey: PrivateKey
-) : KeyProvider {
+) : KeyProvider, Signature {
 
-    /*
-    override fun getKeyPair(): KeyPair {
-        // Implement the required method to return the key pair
-        return KeyPair(publicKey, privateKey)
+    private lateinit var signature: JavaSignature
+
+    // Return the algorithm name for the signature
+    override fun getSignatureName(): String {
+        return "SHA256withRSA" // Algorithm supported by Android Keystore and SSHJ
     }
 
-    override fun getSignature(): Signature {
-        // Pass the required parameters to SignatureRSA constructor
-        return SignatureRSA()
-    }
-     */
-    override fun getType(): KeyType {
-        // Return the correct key type
-        return KeyType.RSA
-    }
-
+    // Return the public key
     override fun getPublic(): PublicKey {
-        // Implement the method to return the public key
         return publicKey
     }
 
-    override fun getPrivate(): PrivateKey {
-        // Implement the method to return the private key
-        return privateKey
+    // Initialize signing with the private key
+    override fun initSign(prvkey: PrivateKey) {
+        signature = JavaSignature.getInstance(getSignatureName(), "AndroidKeyStore") // Keystore-specific signature
+        signature.initSign(prvkey)
+    }
+
+    // Initialize verification with the public key
+    override fun initVerify(pubkey: PublicKey) {
+        signature = JavaSignature.getInstance(getSignatureName())
+        signature.initVerify(pubkey)
+    }
+
+    // Update the data to be signed or verified
+    override fun update(H: ByteArray) {
+        signature.update(H)
+    }
+
+    // Update the data to be signed or verified with a slice of a byte array
+    override fun update(H: ByteArray, off: Int, len: Int) {
+        signature.update(H, off, len)
+    }
+
+    // Sign the data and return the signature
+    override fun sign(): ByteArray {
+        return signature.sign()
+    }
+
+    // Verify the data with the given signature
+    override fun verify(sig: ByteArray): Boolean {
+        return signature.verify(sig)
+    }
+
+    // Return the type of key (RSA in this case)
+    override fun getType(): KeyType {
+        return KeyType.RSA
     }
 }
