@@ -55,6 +55,13 @@ dependencies {
     implementation(libs.bcprov.jdk15on)
     implementation(libs.bcpkix.jdk15on)
 
+    // OkHttp for HTTPS requests
+    implementation(libs.okhttp)
+    implementation(libs.logging.interceptor)
+
+    // JSON handling (org.json library)
+    implementation(libs.json.v20230227)
+
     // Unit Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -11,26 +11,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import com.example.wakeonlanapp.ssh.SSHConnectionManager
+import com.example.wakeonlanapp.https.HTTPSClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.net.Inet4Address
 
 class WakeOnLanViewModel : ViewModel() {
     var isWireGuardActive by mutableStateOf(false)
         private set
-
-    var publicKey by mutableStateOf("") // Holds the public key
-
-    init {
-        // Generate a key pair on initialization if not already present
-        KeyManager.generateKeyPairIfNeeded()
-        // Retrieve the public key in OpenSSH format
-        publicKey = KeyManager.getOpenSshPublicKey()
-        Log.d("SSH", "App Public Key: $publicKey")
-    }
 
     // Check if WireGuard is active
     fun checkWireGuardState(context: Context) {
@@ -103,28 +92,26 @@ class WakeOnLanViewModel : ViewModel() {
         }
     }
 
-    // Function to send Wake-On-LAN command using SSHJ and public key authentication
-    fun sendWakeOnLanCommand(context: Context, host: String, command: String) {
+    // Function to send Wake-On-LAN command using HTTPS
+    fun sendWakeOnLanCommandHTTPS(context: Context, url: String, macAddress: String, ip: String, port: Int) {
         if (!isWireGuardActive) {
             Toast.makeText(context, "WireGuard is not connected. Please activate it.", Toast.LENGTH_SHORT).show()
             return
         }
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val output = SSHConnectionManager.executeCommandWithPublicKey(
-                    context = context,
-                    host = host,
-                    username = "admin",
-                    command = command
-                )
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Command executed successfully: $output", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error executing command: ${e.message}", Toast.LENGTH_LONG).show()
+
+        HTTPSClient.sendWOLRequest(url, macAddress, ip, port) { response, error ->
+            CoroutineScope(Dispatchers.Main).launch {
+                if (error != null) {
+                    val errorMessage = "Failed to send WOL request: $error"
+                    Log.e("WakeOnLanViewModel", errorMessage)
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                } else {
+                    val successMessage = "WOL request successful: $response"
+                    Log.d("WakeOnLanViewModel", successMessage)
+                    Toast.makeText(context, successMessage, Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
+
 }

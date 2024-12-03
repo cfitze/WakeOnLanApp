@@ -19,6 +19,7 @@
         android:roundIcon="@mipmap/wol_ethernet_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.WakeOnLanApp"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31" >
         <activity
             android:name=".MainActivity"
