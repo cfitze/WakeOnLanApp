@@ -21,6 +21,19 @@ class WakeOnLanViewModel : ViewModel() {
     var isWireGuardActive by mutableStateOf(false)
         private set
 
+    var showWireGuardDialog by mutableStateOf(false)
+        private set
+
+    // Function to trigger the WireGuard dialog
+    fun promptWireGuardConnection() {
+        showWireGuardDialog = true
+    }
+
+    // Function to handle dialog dismissal
+    fun dismissWireGuardDialog() {
+        showWireGuardDialog = false
+    }
+
     // Check if WireGuard is active
     fun checkWireGuardState(context: Context) {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -113,5 +126,4 @@ class WakeOnLanViewModel : ViewModel() {
             }
         }
     }
-
 }

@@ -1,12 +1,8 @@
 package com.example.wakeonlanapp.composables
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import android.content.Context
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,9 +19,12 @@ import com.example.wakeonlanapp.viewmodel.WakeOnLanViewModel
 fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
     val context = LocalContext.current
 
-    // Check WireGuard state on launch
+    // Check WireGuard state and prompt user on app start
     LaunchedEffect(Unit) {
         viewModel.checkWireGuardState(context)
+        if (!viewModel.isWireGuardActive) {
+            viewModel.promptWireGuardConnection()
+        }
     }
 
     MaterialTheme {
@@ -36,6 +35,9 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Display the WireGuard connection prompt dialog
+            WireGuardPromptDialog(viewModel, context)
+
             // Button to toggle WireGuard state
             Button(
                 onClick = { viewModel.toggleWireGuardState(context) },
@@ -66,8 +68,7 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                 onClick = {
                     viewModel.sendWakeOnLanCommandHTTPS(
                         context = context,
-                        //url = "https://10.0.0.3:5000",
-                        url = "http://10.0.0.3:5000",   // Change to HTTPS
+                        url = "http://10.0.0.3:5000", // Use HTTP for backend with WireGuard
                         macAddress = "04:7C:16:EB:F8:C9",
                         ip = "192.168.1.255",
                         port = 9
@@ -87,8 +88,7 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                 onClick = {
                     viewModel.sendWakeOnLanCommandHTTPS(
                         context = context,
-                        url = "http://10.0.0.4:5000",
-                        //url = "https://10.0.0.4:5000",
+                        url = "http://10.0.0.4:5000", // Use HTTP for backend with WireGuard
                         macAddress = "D8:43:AE:43:51:40",
                         ip = "192.168.2.255",
                         port = 9
@@ -101,6 +101,34 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                 Text("WOL Workstation (HTTPS)")
             }
         }
+    }
+}
+
+@Composable
+fun WireGuardPromptDialog(viewModel: WakeOnLanViewModel, context: Context) {
+    if (viewModel.showWireGuardDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissWireGuardDialog() },
+            title = { Text("Connect to WireGuard?") },
+            text = { Text("This app requires a secure connection via WireGuard. Please connect to continue.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.dismissWireGuardDialog()
+                        viewModel.toggleWireGuardState(context) // Attempt to connect to WireGuard
+                    }
+                ) {
+                    Text("Connect")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { viewModel.dismissWireGuardDialog() }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
