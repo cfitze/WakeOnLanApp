@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.LinkProperties
+import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -15,9 +18,17 @@ import com.example.wakeonlanapp.https.HTTPSClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.Inet4Address
 
 class WakeOnLanViewModel : ViewModel() {
+
+    var isOnLocalNetwork by mutableStateOf(false)
+        private set
+
+    var currentNetwork: String by mutableStateOf("unknown")
+        private set
+
     var isWireGuardActive by mutableStateOf(false)
         private set
 
@@ -32,6 +43,101 @@ class WakeOnLanViewModel : ViewModel() {
     // Function to handle dialog dismissal
     fun dismissWireGuardDialog() {
         showWireGuardDialog = false
+    }
+
+    // Check if device is on local network for home or work
+    suspend fun checkIfOnLocalNetwork(context: Context, homeSSID: String, workSSID: String, homeSubnet: String, workSubnet: String) {
+        try {
+            val connectivityManager =
+                context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val activeNetwork = connectivityManager.activeNetwork ?: return
+
+            // Get the SSID of the active Wi-Fi network
+            val ssid = getSSIDUsingNetworkCapabilities(connectivityManager, activeNetwork)
+
+            when {
+                ssid == homeSSID -> {
+                    isOnLocalNetwork = true
+                    currentNetwork = "home" // Mark the current network as home
+                    return
+                }
+                ssid == workSSID -> {
+                    isOnLocalNetwork = true
+                    currentNetwork = "work" // Mark the current network as work
+                    return
+                }
+                else -> {
+                    // Fallback: Check IP range for home or work subnet
+                    isOnLocalNetwork = checkIfInSubnet(connectivityManager, homeSubnet) ||
+                            checkIfInSubnet(connectivityManager, workSubnet)
+                    currentNetwork = if (isOnLocalNetwork && checkIfInSubnet(connectivityManager, homeSubnet)) {
+                        "home"
+                    } else if (isOnLocalNetwork && checkIfInSubnet(connectivityManager, workSubnet)) {
+                        "work"
+                    } else {
+                        "unknown"
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("WakeOnLanViewModel", "Error checking local network: ${e.message}")
+            isOnLocalNetwork = false
+            currentNetwork = "unknown"
+        }
+    }
+
+
+    private suspend fun getSSIDUsingNetworkCapabilities(
+        connectivityManager: ConnectivityManager,
+        network: Network
+    ): String? {
+        var ssid: String? = null // Variable to store SSID
+
+        withContext(Dispatchers.IO) {
+            val request = NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build()
+
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    // Called when Wi-Fi is available
+                    Log.d("WakeOnLanViewModel", "Wi-Fi is available")
+                }
+
+                override fun onCapabilitiesChanged(
+                    network: Network,
+                    capabilities: NetworkCapabilities
+                ) {
+                    capabilities.transportInfo?.let { transportInfo ->
+                        if (transportInfo is android.net.wifi.WifiInfo) {
+                            ssid = transportInfo.ssid.replace("\"", "") // Remove quotes from SSID
+                            Log.d("WakeOnLanViewModel", "Retrieved SSID: $ssid")
+                        } else {
+                            Log.d("WakeOnLanViewModel", "Transport info is not WifiInfo")
+                        }
+                    }
+                }
+
+                override fun onUnavailable() {
+                    Log.d("WakeOnLanViewModel", "Wi-Fi is unavailable")
+                }
+            }
+
+            connectivityManager.registerNetworkCallback(request, callback)
+        }
+
+        return ssid
+    }
+
+
+    // Helper function to check if device IP belongs to local subnet
+    private fun checkIfInSubnet(connectivityManager: ConnectivityManager, localSubnet: String): Boolean {
+        val network = connectivityManager.activeNetwork ?: return false
+        val linkProperties = connectivityManager.getLinkProperties(network) ?: return false
+        val currentIp = linkProperties.linkAddresses
+            .find { it.address is Inet4Address }
+            ?.address?.hostAddress
+        return currentIp?.startsWith(localSubnet) == true
     }
 
     // Check if WireGuard is active
