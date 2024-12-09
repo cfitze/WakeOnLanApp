@@ -6,8 +6,6 @@ import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
-import android.net.wifi.WifiManager
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -23,10 +21,16 @@ import java.net.Inet4Address
 
 class WakeOnLanViewModel : ViewModel() {
 
+    // Define constants for home and work network
+    private val homeSSID = "Not your network"
+    private val workSSID = "Solar Alliance"
+    private val homeSubnet = "192.168.1."
+    private val workSubnet = "192.168.2."
+
     var isOnLocalNetwork by mutableStateOf(false)
         private set
 
-    var currentNetwork: String by mutableStateOf("unknown")
+    var currentNetwork by mutableStateOf("unknown")
         private set
 
     var isWireGuardActive by mutableStateOf(false)
@@ -46,7 +50,7 @@ class WakeOnLanViewModel : ViewModel() {
     }
 
     // Check if device is on local network for home or work
-    suspend fun checkIfOnLocalNetwork(context: Context, homeSSID: String, workSSID: String, homeSubnet: String, workSubnet: String) {
+    suspend fun checkIfOnLocalNetwork(context: Context) {
         try {
             val connectivityManager =
                 context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -86,7 +90,6 @@ class WakeOnLanViewModel : ViewModel() {
         }
     }
 
-
     private suspend fun getSSIDUsingNetworkCapabilities(
         connectivityManager: ConnectivityManager,
         network: Network
@@ -94,16 +97,7 @@ class WakeOnLanViewModel : ViewModel() {
         var ssid: String? = null // Variable to store SSID
 
         withContext(Dispatchers.IO) {
-            val request = NetworkRequest.Builder()
-                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                .build()
-
             val callback = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    // Called when Wi-Fi is available
-                    Log.d("WakeOnLanViewModel", "Wi-Fi is available")
-                }
-
                 override fun onCapabilitiesChanged(
                     network: Network,
                     capabilities: NetworkCapabilities
@@ -112,25 +106,17 @@ class WakeOnLanViewModel : ViewModel() {
                         if (transportInfo is android.net.wifi.WifiInfo) {
                             ssid = transportInfo.ssid.replace("\"", "") // Remove quotes from SSID
                             Log.d("WakeOnLanViewModel", "Retrieved SSID: $ssid")
-                        } else {
-                            Log.d("WakeOnLanViewModel", "Transport info is not WifiInfo")
                         }
                     }
                 }
-
-                override fun onUnavailable() {
-                    Log.d("WakeOnLanViewModel", "Wi-Fi is unavailable")
-                }
             }
 
-            connectivityManager.registerNetworkCallback(request, callback)
+            connectivityManager.registerDefaultNetworkCallback(callback)
         }
 
         return ssid
     }
 
-
-    // Helper function to check if device IP belongs to local subnet
     private fun checkIfInSubnet(connectivityManager: ConnectivityManager, localSubnet: String): Boolean {
         val network = connectivityManager.activeNetwork ?: return false
         val linkProperties = connectivityManager.getLinkProperties(network) ?: return false
@@ -211,13 +197,29 @@ class WakeOnLanViewModel : ViewModel() {
         }
     }
 
-    // Function to send Wake-On-LAN command using HTTPS
-    fun sendWakeOnLanCommandHTTPS(context: Context, url: String, macAddress: String, ip: String, port: Int) {
-        if (!isWireGuardActive) {
-            Toast.makeText(context, "WireGuard is not connected. Please activate it.", Toast.LENGTH_SHORT).show()
-            return
+    fun sendWakeOnLanCommandHTTPS(
+        context: Context,
+        localUrl: String,
+        wireGuardUrl: String,
+        macAddress: String,
+        ip: String,
+        port: Int
+    ) {
+        // Determine the correct URL based on the current network state
+        val url = when {
+            isOnLocalNetwork -> localUrl // Use the local network URL
+            isWireGuardActive -> wireGuardUrl // Use the WireGuard URL
+            else -> {
+                Toast.makeText(
+                    context,
+                    "No valid network connection. Activate WireGuard or connect to a local network.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
         }
 
+        // Send WOL request
         HTTPSClient.sendWOLRequest(url, macAddress, ip, port) { response, error ->
             CoroutineScope(Dispatchers.Main).launch {
                 if (error != null) {

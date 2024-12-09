@@ -19,10 +19,11 @@ import com.example.wakeonlanapp.viewmodel.WakeOnLanViewModel
 fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
     val context = LocalContext.current
 
-    // Check WireGuard state and prompt user on app start
+    // Check WireGuard state and local network status on app start
     LaunchedEffect(Unit) {
         viewModel.checkWireGuardState(context)
-        if (!viewModel.isWireGuardActive) {
+        viewModel.checkIfOnLocalNetwork(context) // Check local network
+        if (!viewModel.isOnLocalNetwork && !viewModel.isWireGuardActive) {
             viewModel.promptWireGuardConnection()
         }
     }
@@ -37,6 +38,18 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
         ) {
             // Display the WireGuard connection prompt dialog
             WireGuardPromptDialog(viewModel, context)
+
+            // Display local network status
+            Text(
+                text = "On Local Network: ${viewModel.isOnLocalNetwork}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = "Current Network: ${viewModel.currentNetwork}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Button to toggle WireGuard state
             Button(
@@ -68,7 +81,8 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                 onClick = {
                     viewModel.sendWakeOnLanCommandHTTPS(
                         context = context,
-                        url = "http://10.0.0.3:5000", // Use HTTP for backend with WireGuard
+                        localUrl = "http://192.168.1.115:5000",  // Local Home IP
+                        wireGuardUrl = "http://10.0.0.3:5000",   // WireGuard Home IP
                         macAddress = "04:7C:16:EB:F8:C9",
                         ip = "192.168.1.255",
                         port = 9
@@ -78,9 +92,10 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                     .fillMaxWidth()
                     .padding(8.dp)
             ) {
-                Text("WOL Computer Home (HTTPS)")
+                Text("WOL Computer Home")
             }
 
+            // Spacer
             Spacer(modifier = Modifier.height(16.dp))
 
             // Button to send WOL to Workstation
@@ -88,7 +103,8 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                 onClick = {
                     viewModel.sendWakeOnLanCommandHTTPS(
                         context = context,
-                        url = "http://10.0.0.4:5000", // Use HTTP for backend with WireGuard
+                        localUrl = "http://192.168.2.110:5000",  // Local Work IP
+                        wireGuardUrl = "http://10.0.0.4:5000",   // WireGuard Work IP
                         macAddress = "D8:43:AE:43:51:40",
                         ip = "192.168.2.255",
                         port = 9
@@ -98,8 +114,9 @@ fun WakeOnLanApp(viewModel: WakeOnLanViewModel) {
                     .fillMaxWidth()
                     .padding(8.dp)
             ) {
-                Text("WOL Workstation (HTTPS)")
+                Text("WOL Workstation")
             }
+
         }
     }
 }
